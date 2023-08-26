@@ -1,0 +1,11 @@
+{
+    "population_size":30,
+    "generations":100,
+    "mutation_rate":0.125,
+    "percent_parents":0.25,
+    "max_frames":600,
+    
+    "dist_crossover":0.30,
+    "dist_single":0.55,
+    "dist_random":0.15
+}
