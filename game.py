@@ -5,6 +5,7 @@ import os
 import tensorflow as tf
 import numpy as np
 from car import Car
+from statsgraph import bar_from
 
 clock = pygame.time.Clock()
 pygame.display.set_caption("RACE!!!")
@@ -12,10 +13,10 @@ pygame.font.init()
 
 font = pygame.font.SysFont('arial', 18)
 
-surface = pygame.display.set_mode((900, 600))
+surface = pygame.display.set_mode((1050, 600))
 pygame.display.flip()
 
-SURFACE_BG = (225, 225, 225)
+SURFACE_BG = (255, 255, 255)
 car_img = pygame.transform.scale(pygame.image.load(os.path.join("imgs", "car.png"))
                                 .convert_alpha(), (30, 15))
 track_img = pygame.transform.scale(pygame.image.load(os.path.join("imgs","track.png"))
@@ -35,17 +36,25 @@ class Game:
     def __init__(self):
         self.generation = 1
         self.max_generation = settings.get('generations')
-        self.population = []
-        self.draws = []
-        self.parents = []
+        self.population, self.draws, self.parents = [], [], []
         self.top, self.avg, self.std, self.current_top = 0, 0, 0, 0
+        self.tops, self.avgs = [], []
+        self.chart_images = []
         self.frames = 0
         self.run = True
         self.surface = surface
 
-    def render_text(self, text, coords):
-        label = font.render(text,1,(0, 0, 0))
-        self.surface.blit(label, coords)
+    def get_chart_x(self): return np.arange(max(1, self.generation-9), self.generation+1)
+    def get_chart_y1(self): return [self.tops[x_point-1] for x_point in self.get_chart_x()]
+    def get_chart_y2(self): return [self.avgs[x_point-1] for x_point in self.get_chart_x()]
+    def render_text(self, text, coords): self.surface.blit(font.render(text,1,(0, 0, 0)), coords)
+
+    def set_chart_image(self):
+        self.chart_images = []
+        top_chart = pygame.image.load(bar_from(self.get_chart_x(), self.get_chart_y1(), 
+                                               self.get_chart_y2(), t1=Car.FITNESS_ACCEL_THRESHOLD_1,
+                                               t2=Car.FITNESS_ACCEL_THRESHOLD_2))
+        self.chart_images.append(pygame.transform.scale(top_chart, (430, 344)))
 
     def draw(self):
         self.surface.fill(SURFACE_BG)
@@ -67,11 +76,15 @@ class Game:
             current_fitness = sorted([car.fitness for car in self.draws], reverse=True) if len(self.draws) > 0 else []
             self.top, self.avg, self.std = np.max(pop_fitness), np.mean(pop_fitness), np.std(pop_fitness)
             if len(current_fitness) > 0: self.current_top = np.max(current_fitness)
-            
+    
         self.render_text(f"Top Fitness: {'{:.0f}'.format(self.top)}", (620, 110))
         self.render_text(f"Current Top Fitness: {'{:.0f}'.format(self.current_top)}", (620, 135))
         self.render_text(f"Mean Fitness: {'{:.2f}'.format(self.avg)}", (620, 160))
         self.render_text(f"Standard Deviation: {'{:.2f}'.format(self.std)}", (620, 185))
+
+        if len(self.chart_images) > 0: 
+            self.render_text("Fitness vs Generation", (620, 240))
+            self.surface.blit(self.chart_images[0], (610, 270))
 
     def create_chromosome(self, model):
         return [tf.Variable(np.random.randn(*w.shape).astype(np.float32)) for w in model.get_weights()]
@@ -157,9 +170,13 @@ class Game:
             pygame.display.update()
 
         sorted_population = sorted(self.population, key=lambda car:car.fitness, reverse=True)
+        sorted_fitness = sorted([car.fitness for car in self.population], reverse=True)
+        self.tops.append(np.max(sorted_fitness))
+        self.avgs.append(np.mean(sorted_fitness))
         self.parents = [car.model for car in 
                             sorted_population[:round(settings.get("population_size") * settings.get("percent_parents"))]]
         self.draws, self.population = [], []
+        self.set_chart_image()
 
     def init_game(self):
         while self.generation <= self.max_generation:

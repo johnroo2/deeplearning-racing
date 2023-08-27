@@ -1,5 +1,9 @@
 import pygame
 import math
+import json
+
+with open("settings.json") as settings_data_file:
+    settings = json.load(settings_data_file)
 
 class Car:
     IMG = None
@@ -9,14 +13,17 @@ class Car:
     ROT_ACCEL = 0.10
 
     VEL_ACCEL = 0.05
-    MIN_VEL = 5.00
+    MIN_VEL = 4.00
     START_VEL = 5.50
-    TERMINAL_VEL = 10.00
+    TERMINAL_VEL = 12.00
 
     PROBE_DISTANCE = 5.00
     PROBE_COLOUR = (150, 225, 150)
 
     TOLERANCE = 120
+
+    FITNESS_ACCEL_THRESHOLD_1 = MIN_VEL * settings.get("max_frames") * 0.040
+    FITNESS_ACCEL_THRESHOLD_2 = MIN_VEL * settings.get("max_frames") * 0.080
 
     def __init__(self, x, y, model):
         self.x, self.y = x, y
@@ -59,7 +66,6 @@ class Car:
 
     def move(self):
         self.fitness += self.speed / 10.0
-        #print(self.fitness)
 
         self.x += math.cos(math.radians(self.rot)) * self.speed
         self.y += math.sin(math.radians(self.rot)) * self.speed
@@ -73,7 +79,13 @@ class Car:
         self.speed = max(Car.MIN_VEL, self.speed - Car.VEL_ACCEL)
 
     def accelerate(self): 
-        if self.speed < Car.TERMINAL_VEL: self.fitness += 1
+        if self.speed < Car.TERMINAL_VEL: 
+            if self.fitness < Car.FITNESS_ACCEL_THRESHOLD_1:
+                self.fitness += 1
+            elif self.fitness < Car.FITNESS_ACCEL_THRESHOLD_2:
+                self.fitness += 2.5
+            else:
+                self.fitness += 6
         self.speed = min(Car.TERMINAL_VEL, self.speed + 8 * Car.VEL_ACCEL)
 
     def turnleft(self):
