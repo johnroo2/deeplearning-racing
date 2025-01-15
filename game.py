@@ -182,7 +182,7 @@ class Game:
         while self.generation <= self.max_generation:
             self.run_neuroevolution()
             self.generation += 1
-        pygame.quit()
-        quit()
+        # pygame.quit()
+        # quit()
 
 main_game = Game()
